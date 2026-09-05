@@ -2,13 +2,13 @@
 
 **QuarkLang 官方库（system）——系统进程执行能力，官方认证。**
 
-本仓库是 QuarkLang 官方项目生态的一部分：`system.qlib` 是官方认证的
+本仓库是 QuarkLang 官方项目生态的一部分：`system.qk` 是官方认证的
 `sytem` 库源码，包装 QuarkLang 运行时原生提供的进程执行原语，
 并提供官方语义背书。
 
 ## 使用方法
 
-把 `system.qlib` 放在与你的源码同目录，然后：
+把 `system.qk` 放在与你的源码同目录，然后：
 
 ```qk
 import "system";
