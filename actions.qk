@@ -1,24 +1,91 @@
-/* QuarkLang 官方库：actions —— 进程执行动作（官方认证）
+/* QuarkLang 官方库：actions —— 进程/网络执行动作（官方认证）
  *
- * 认证说明：本库是 QuarkLang 官方认证的 actions 库——它所包装的
- * qkexec/qkexecv/qkpopen 原语由 QuarkLang 运行时（interp）提供，
- * 本文件是官方给出的使用形态与语义背书。
+ * 两级结构：
+ *   第一级 系统级普通函数（space 空间）：system space 提供进程执行，
+ *          network space 提供网络交互（get/post）；
+ *   第二级 包装层：Command / Network 为 struct 类，实现 Executor 接口，
+ *          方法带 self，通过实例方法 .exec() 执行。
  *
  * 安全约束（运行时强制）：
- *   - exec/popen 经 shell 执行（sh -c）；如需完全避免 shell 注入，
- *     使用 execv（argv 直传，不经 shell）。
- *   - popen 输出上限 8 MiB，超限直接报错。
+ *   - exec/popen 经 shell 执行（sh -c）；避免 shell 注入用 execv（argv 直传）；
+ *   - popen 输出上限 8 MiB；qkhttp_get/post 10s 超时、响应上限 8 MiB。
  */
 program library;
 
-pub fn exec(cmd String) int {
-    return qkexec(cmd);
-}
+// ===== 第一级：space 系统级普通函数 =====
+space {
+    // 执行 shell 命令，返回退出码（0=成功）
+    fn exec(cmd String) int {
+        return qkexec(cmd);
+    }
+    // argv 直传，不经 shell（无注入面），返回退出码
+    fn execv(prog String, args List<String>) int {
+        return qkexecv(prog, args);
+    }
+    // 捕获命令 stdout 为输入流
+    fn popen(cmd String) InputStream {
+        return qkpopen(cmd);
+    }
+} (system);
 
-pub fn execv(prog String, args List<String>) int {
-    return qkexecv(prog, args);
-}
+space {
+    // HTTP GET，返回响应体（10s 超时，8 MiB 上限）
+    fn get(url String) String {
+        return qkhttp_get(url);
+    }
+    // HTTP POST(url, body, contentType)，返回响应体
+    fn post(url String, body String, contentType String) String {
+        return qkhttp_post(url, body, contentType);
+    }
+} (network);
 
-pub fn popen(cmd String) InputStream {
-    return qkpopen(cmd);
-}
+// ===== 第二级：包装层（实现 Executor 接口，.exec() 执行命令） =====
+interface {
+    fn exec(self Self, cmd String) int;
+} Executor;
+
+struct {
+    lastCode int;
+} Command;
+
+impl Command Executor {
+    // 实现 Executor：执行命令并记录退出码
+    fn exec(self, cmd String) int {
+        self.lastCode = system::exec(cmd);
+        return self.lastCode;
+    }
+    // 最近一次退出码
+    fn lastCode(self) int {
+        return self.lastCode;
+    }
+    fn new() Command {
+        c Command;
+        c.lastCode = 0;
+        return c;
+    }
+} Command;
+
+struct {
+    lastCode int;
+} Network;
+
+impl Network Executor {
+    // 实现 Executor：执行一次网络命令（GET url）；失败即抛错，成功返回 0
+    fn exec(self, url String) int {
+        network::get(url);
+        self.lastCode = 0;
+        return self.lastCode;
+    }
+    // 网络请求
+    fn get(self, url String) String {
+        return network::get(url);
+    }
+    fn post(self, url String, body String, contentType String) String {
+        return network::post(url, body, contentType);
+    }
+    fn new() Network {
+        n Network;
+        n.lastCode = 0;
+        return n;
+    }
+} Network;
