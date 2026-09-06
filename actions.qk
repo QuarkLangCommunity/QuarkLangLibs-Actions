@@ -1,14 +1,13 @@
-/* QuarkLang 官方库：actions —— 进程/网络执行动作（官方认证）
+/* QuarkLang 官方库：actions —— 进程/网络执行动作（官方认证，纯 qk 实现）
  *
- * 两级结构：
- *   第一级 系统级普通函数（space 空间）：system space 提供进程执行，
- *          network space 提供网络交互（get/post）；
- *   第二级 包装层：Command / Network 为 struct 类，实现 Executor 接口，
- *          方法带 self，通过实例方法 .exec() 执行。
+ * 两级结构（全部为 QuarkLang 语言特性，无任何扩展语法）：
+ *   第一级 space 系统级普通函数：system / network
+ *   第二级 包装类：Command / Network 是 struct+impl，实现 Executor 接口；
+ *          new(参数) 构造，实例方法 .exec() 执行 —— Command::new(params).exec()
  *
  * 安全约束（运行时强制）：
- *   - exec/popen 经 shell 执行（sh -c）；避免 shell 注入用 execv（argv 直传）；
- *   - popen 输出上限 8 MiB；qkhttp_get/post 10s 超时、响应上限 8 MiB。
+ *   - execv 走 argv 直传（不经 shell，注入面为零）；exec/popen 经 sh -c；
+ *   - popen 输出 ≤ 8 MiB；network::get/post 10s 超时、响应 ≤ 8 MiB。
  */
 program library;
 
@@ -39,53 +38,48 @@ space {
     }
 } (network);
 
-// ===== 第二级：包装层（实现 Executor 接口，.exec() 执行命令） =====
+// ===== 第二级：包装类（实现 Executor 接口，new(参数) 构造 + .exec()） =====
 interface {
-    fn exec(self Self, cmd String) int;
+    fn exec(self Self) int;
 } Executor;
 
 struct {
-    lastCode int;
+    prog String;
+    args List<String>;
 } Command;
 
 impl Command Executor {
-    // 实现 Executor：执行命令并记录退出码
-    fn exec(self, cmd String) int {
-        self.lastCode = system::exec(cmd);
-        return self.lastCode;
-    }
-    // 最近一次退出码
-    fn lastCode(self) int {
-        return self.lastCode;
-    }
-    fn new() Command {
+    // 构造：Command::new(prog, args) —— 命令由参数构成
+    fn new(prog String, args List<String>) Command {
         c Command;
-        c.lastCode = 0;
+        c.prog = prog;
+        c.args = args;
         return c;
+    }
+    // 实现 Executor：执行构造时指定的命令（argv 直传，无 shell 注入面）
+    fn exec(self) int {
+        return system::execv(self.prog, self.args);
     }
 } Command;
 
 struct {
-    lastCode int;
+    url String;
 } Network;
 
 impl Network Executor {
-    // 实现 Executor：执行一次网络命令（GET url）；失败即抛错，成功返回 0
-    fn exec(self, url String) int {
-        network::get(url);
-        self.lastCode = 0;
-        return self.lastCode;
-    }
-    // 网络请求
-    fn get(self, url String) String {
-        return network::get(url);
-    }
-    fn post(self, url String, body String, contentType String) String {
-        return network::post(url, body, contentType);
-    }
-    fn new() Network {
+    // 构造：Network::new(url) —— 面向指定地址
+    fn new(url String) Network {
         n Network;
-        n.lastCode = 0;
+        n.url = url;
         return n;
+    }
+    // 实现 Executor：对构造地址执行网络命令（GET），失败抛错、成功 0
+    fn exec(self) int {
+        network::get(self.url);
+        return 0;
+    }
+    // GET 响应体
+    fn get(self) String {
+        return network::get(self.url);
     }
 } Network;

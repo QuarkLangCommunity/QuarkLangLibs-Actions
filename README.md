@@ -43,14 +43,15 @@ fn main(io IOStream) {
     s String = network::get("https://example.com/api");
     io.println(s);
 
-    // 第二级：包装类（Executor 接口）
-    c Command = Command::new();
-    c.exec("echo hi");            // 实现 Executor：.exec() 执行命令
-    io.println(c.lastCode());     // 最近退出码
+    // 第二级：包装类（Executor 接口）—— 链式与变量式均可
+    Command::new("echo", ["hello"]).exec();          // 链式
+    c Command = Command::new("echo", ["world"]);     // 变量式
+    c.exec();
 
-    n Network = Network::new();
-    n.exec("http://127.0.0.1:8000/");   // 实现 Executor：.exec() 执行网络命令
-    io.println(n.get("http://127.0.0.1:8000/"));
+    Network::new("http://127.0.0.1:8000/").exec();   // 链式
+    n Network = Network::new("http://127.0.0.1:8000/");
+    n.exec();
+    io.println(n.get("http://127.0.0.1:8000/"));     // GET 响应体（实例方法）
 }
 ```
 
