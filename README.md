@@ -1,17 +1,17 @@
-# QuarkLangLibs-System
+# QuarkLangLibs-Actions
 
-**QuarkLang 官方库（system）——系统进程执行能力，官方认证。**
+**QuarkLang 官方库（actions）——进程执行动作，官方认证。**
 
-本仓库是 QuarkLang 官方项目生态的一部分：`system.qk` 是官方认证的
-`sytem` 库源码，包装 QuarkLang 运行时原生提供的进程执行原语，
+本仓库是 QuarkLang 官方项目生态的一部分：`actions.qk` 是官方认证的
+`actions` 库源码，包装 QuarkLang 运行时原生提供的进程执行原语，
 并提供官方语义背书。
 
 ## 使用方法
 
-把 `system.qk` 放在与你的源码同目录，然后：
+把 `actions.qk` 放在与你的源码同目录，然后：
 
 ```qk
-import "system";
+import "actions";
 
 fn main(io IOStream) {
     // 执行 shell 命令，返回退出码（0 表示成功）
@@ -38,7 +38,7 @@ fn main(io IOStream) {
 
 ## 认证信息
 
-- 库名：`system`（`import "system"`）
+- 库名：`actions`（`import "actions"`）
 - 语言版本：QuarkLang v0.2（`fn`/`struct`/`impl`/泛型体系）
 - 运行时版本：见 QuarkLang 主仓库 `compiler/main.go` 的 `engineVersion`
 - 认证方：QuarkLang 官方项目
