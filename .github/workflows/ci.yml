@@ -1,0 +1,23 @@
+name: ci
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+      - name: 取解释器与工具链
+        run: |
+          git clone --depth 1 https://github.com/QuarkLangCommunity/QuarkLangQkc.git /tmp/qkc-repo
+          cd /tmp/qkc-repo && go build -o /tmp/quark main.go
+          git clone --depth 1 https://github.com/QuarkLangCommunity/QuarkLangQkfmt.git /tmp/qkfmt-repo
+          cd /tmp/qkfmt-repo && go build -o /tmp/qkfmt .
+      - name: 库测试
+        run: |
+          if [ -x tests/run.sh ]; then QUARK=/tmp/quark ./tests/run.sh; fi
+      - name: 格式检查（提示，不阻断）
+        run: |
+          /tmp/qkfmt -l $(git ls-files '*.qk' | head -50) || true
