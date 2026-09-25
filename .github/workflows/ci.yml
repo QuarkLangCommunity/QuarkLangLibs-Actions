@@ -1,17 +1,23 @@
 name: ci
 on: [push, pull_request]
 
+# 最小权限：CI 只读（显式声明，不依赖仓库默认值）
+permissions:
+  contents: read
+
+
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4（SHA 固定；dependabot 周更）
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5（SHA 固定；dependabot 周更）
         with:
-          go-version: '1.21'
+          go-version: '1.26'
       - name: 取解释器与工具链
         run: |
-          git clone --depth 1 https://github.com/QuarkLangCommunity/QuarkLangQkc.git /tmp/qkc-repo
+          # 钉主仓**版本 tag**（不再跟 main）：主仓变更不再连坐本仓 CI；升级时同步改这里
+          git clone --depth 1 --branch v2.0.0 https://github.com/QuarkLangCommunity/QuarkLangQkc.git /tmp/qkc-repo
           cd /tmp/qkc-repo && go build -o /tmp/quark main.go
           git clone --depth 1 https://github.com/QuarkLangCommunity/QuarkLangQkfmt.git /tmp/qkfmt-repo
           cd /tmp/qkfmt-repo && go build -o /tmp/qkfmt .

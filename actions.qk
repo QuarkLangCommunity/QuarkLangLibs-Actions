@@ -14,72 +14,72 @@ program library;
 // ===== 第一级：space 系统级普通函数 =====
 space {
     // 执行 shell 命令，返回退出码（0=成功）
-    fn exec(cmd String) int {
+    fn exec(String cmd) int {
         return qkexec(cmd);
     }
     // argv 直传，不经 shell（无注入面），返回退出码
-    fn execv(prog String, args List<String>) int {
+    fn execv(String prog, List<String> args) int {
         return qkexecv(prog, args);
     }
     // 捕获命令 stdout 为输入流
-    fn popen(cmd String) InputStream {
+    fn popen(String cmd) InputStream {
         return qkpopen(cmd);
     }
-} (system);
+} system;
 
 space {
     // HTTP GET，返回响应体（10s 超时，8 MiB 上限）
-    fn get(url String) String {
+    fn get(String url) String {
         return qkhttp_get(url);
     }
     // HTTP POST(url, body, contentType)，返回响应体
-    fn post(url String, body String, contentType String) String {
+    fn post(String url, String body, String contentType) String {
         return qkhttp_post(url, body, contentType);
     }
-} (network);
+} network;
 
 // ===== 第二级：包装类（实现 Executor 接口，new(参数) 构造 + .exec()） =====
-interface {
-    fn exec(self Self) int;
+type interface {
+    fn exec(Self self) int;
 } Executor;
 
-struct {
-    prog String;
-    args List<String>;
+type struct {
+    String prog;
+    List<String> args;
 } Command;
 
-impl Command Executor {
+impl {
     // 构造：Command::new(prog, args) —— 命令由参数构成
-    fn new(prog String, args List<String>) Command {
-        c Command;
+    fn new(String prog, List<String> args) Command {
+        Command c;
         c.prog = prog;
         c.args = args;
         return c;
     }
     // 实现 Executor：执行构造时指定的命令（argv 直传，无 shell 注入面）
-    fn exec(self) int {
+    fn exec(Command self) int {
         return system::execv(self.prog, self.args);
     }
 } Command;
 
-struct {
-    url String;
+type struct {
+    String url;
 } Network;
 
-impl Network Executor {
+impl {
     // 构造：Network::new(url) —— 面向指定地址
-    fn new(url String) Network {
-        n Network;
+    fn new(String url) Network {
+        Network n;
         n.url = url;
         return n;
     }
     // 实现 Executor：对构造地址执行网络命令（GET），失败抛错、成功 0
-    fn exec(self) int {
+    fn exec(Network self) int {
         network::get(self.url);
         return 0;
     }
     // GET 响应体
-    fn get(self) String {
+    fn get(Network self) String {
         return network::get(self.url);
     }
 } Network;

@@ -1,0 +1,12 @@
+# 依赖更新：GitHub Actions 固定到 SHA 后由 dependabot 每周提 PR 升级
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"
+    labels:
+      - dependencies
