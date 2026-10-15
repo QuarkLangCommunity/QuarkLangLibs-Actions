@@ -8,22 +8,44 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    name: library tests (${{ matrix.os }})
+    # Cross-platform gate: this library is pure qk, so the thing worth checking on every OS is
+    # that the pinned interpreter still parses and runs it to the same verdict.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4（SHA 固定；dependabot 周更）
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5（SHA 固定；dependabot 周更）
         with:
           go-version: '1.26'
       - name: 取解释器与工具链
+        shell: bash
         run: |
+          set -euo pipefail
+          # Tools go in a directory outside the checkout, reached by a relative path.
+          # An absolute /tmp path is not portable: a native Windows compiler reads
+          # /tmp/... as <current drive>:\tmp\..., which is not where bash's /tmp points.
+          ext=""
+          if [ "$(go env GOOS)" = "windows" ]; then ext=".exe"; fi
+          mkdir -p ../.ci-tools
           # 钉主仓**版本 tag**（不再跟 main）：主仓变更不再连坐本仓 CI；升级时同步改这里
-          git clone --depth 1 --branch v2.0.0 https://github.com/QuarkLangCommunity/QuarkLangQkc.git /tmp/qkc-repo
-          cd /tmp/qkc-repo && go build -o /tmp/quark main.go
-          git clone --depth 1 https://github.com/QuarkLangCommunity/QuarkLangQkfmt.git /tmp/qkfmt-repo
-          cd /tmp/qkfmt-repo && go build -o /tmp/qkfmt .
+          git clone --depth 1 --branch v2.0.0 https://github.com/QuarkLangCommunity/QuarkLangQkc.git ../.ci-tools/qkc-repo
+          ( cd ../.ci-tools/qkc-repo && go build -o ../quark$ext main.go )
+          git clone --depth 1 https://github.com/QuarkLangCommunity/QuarkLangQkfmt.git ../.ci-tools/qkfmt-repo
+          ( cd ../.ci-tools/qkfmt-repo && go build -o ../qkfmt$ext . )
+          echo "CI_TOOLS_EXT=$ext" >> "$GITHUB_ENV"
       - name: 库测试
+        shell: bash
         run: |
-          if [ -x tests/run.sh ]; then QUARK=/tmp/quark ./tests/run.sh; fi
+          set -euo pipefail
+          # bash on every OS: the runner's default shell is pwsh on Windows, where this
+          # `if` would not be a shell conditional at all.
+          export QUARK="$PWD/../.ci-tools/quark$CI_TOOLS_EXT"
+          if [ -x tests/run.sh ]; then ./tests/run.sh; else echo "no tests/run.sh: nothing to gate on" >&2; exit 1; fi
       - name: 格式检查（提示，不阻断）
+        shell: bash
         run: |
-          /tmp/qkfmt -l $(git ls-files '*.qk' | head -50) || true
+          "$PWD/../.ci-tools/qkfmt$CI_TOOLS_EXT" -l $(git ls-files '*.qk' | head -50) || true
