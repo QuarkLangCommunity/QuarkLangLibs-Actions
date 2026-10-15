@@ -1,0 +1,71 @@
+// Behaviour pinned for the actions library's documented entry points.
+//
+// execv / Command::exec are shell-free (argv is passed straight to the program), so they can be
+// exercised portably by running the interpreter itself, whose path run.sh substitutes for the
+// placeholder below. system::exec deliberately goes through `sh -c`, and README.md documents that
+// split, so both paths are covered. network::get/post are left alone: they need the network, and
+// a gate that depends on an external host is a gate that flakes.
+import "actions";
+
+program main;
+
+fn chk(IOStream io, List<int> st, String name, bool cond) int {
+    if (cond) {
+        io.println("OK " + name);
+    } else {
+        st[0] = st[0] + 1;
+        io.println("FAIL " + name);
+    }
+    return 0;
+}
+
+fn chkI(IOStream io, List<int> st, String name, int got, int want) int {
+    if (got == want) {
+        io.println("OK " + name);
+    } else {
+        st[0] = st[0] + 1;
+        io.println("FAIL " + name + " got=" + got.toString() + " want=" + want.toString());
+    }
+    return 0;
+}
+
+fn chkS(IOStream io, List<int> st, String name, String got, String want) int {
+    if (got == want) {
+        io.println("OK " + name);
+    } else {
+        st[0] = st[0] + 1;
+        io.println("FAIL " + name + " got=[" + got + "] want=[" + want + "]");
+    }
+    return 0;
+}
+
+fn main(IOStream io) {
+    List<int> st = [0];
+    String quarkBin = "__QUARK_BIN__";
+
+    // First level: system::execv runs a real program and returns its exit code.
+    chkI(io, st, "execv-runs-a-real-program", system::execv(quarkBin, ["--version"]), 0);
+
+    // Second level: the Command class is a struct implementing Executor, and README documents
+    // Command::new(prog, args).exec() as the constructor-plus-method form.
+    Command c = Command::new(quarkBin, ["--version"]);
+    chkS(io, st, "command-keeps-its-program", c.prog, quarkBin);
+    chkI(io, st, "command-keeps-its-args", c.args.size(), 1);
+    chkI(io, st, "command-exec-returns-zero", c.exec(), 0);
+
+    // First level: system::exec goes through `sh -c`, so the code it returns is the shell's.
+    chkI(io, st, "exec-success-code", system::exec("exit 0"), 0);
+    chkI(io, st, "exec-propagates-nonzero-code", system::exec("exit 3"), 3);
+
+    // A program that does not exist must raise rather than report a silent success.
+    bool raised = false;
+    try {
+        List<String> noArgs = ["x"];
+        system::execv("quarklang-no-such-program-4f2a", noArgs);
+    } catch (void e) {
+        raised = true;
+    }
+    chk(io, st, "execv-missing-program-raises", raised);
+
+    io.println("failures=" + st[0].toString());
+}
