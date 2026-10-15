@@ -43,7 +43,14 @@ jobs:
           set -euo pipefail
           # bash on every OS: the runner's default shell is pwsh on Windows, where this
           # `if` would not be a shell conditional at all.
-          export QUARK="$PWD/../.ci-tools/quark$CI_TOOLS_EXT"
+          tools="$PWD/../.ci-tools"
+          # The actions tests hand the interpreter's own path to execv, so the path crosses
+          # into a native process. bash understands an MSYS path like /d/a/... and translates
+          # it when it spawns a child, but a *native* process re-executing that string reads
+          # it as <drive>:\d\a\..., which is not where the file is. Hand out the mixed form
+          # (D:/a/...) instead: both bash and the Windows loader accept it.
+          if command -v cygpath >/dev/null 2>&1; then tools="$(cygpath -m "$tools")"; fi
+          export QUARK="$tools/quark$CI_TOOLS_EXT"
           if [ -x tests/run.sh ]; then ./tests/run.sh; else echo "no tests/run.sh: nothing to gate on" >&2; exit 1; fi
       - name: 格式检查（提示，不阻断）
         shell: bash
