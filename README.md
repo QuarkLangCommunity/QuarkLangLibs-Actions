@@ -18,16 +18,16 @@
 | `network` | `get(url String) String` | HTTP GET；10s 超时；8 MiB 上限；非 2xx 报错 |
 | `network` | `post(url String, body String, contentType String) String` | HTTP POST |
 
-**第二级：包装层（struct 类实现 Executor 接口）** —— 方法带 `self`（`self Self` 真实签名）：
+**第二级：包装层（struct 类实现 Executor 接口）** — the receiver is the first parameter, as in the implementation (`fn exec(Command self) int`):
 
 ```qk
-interface {
-    fn exec(self Self, cmd String) int;
+type interface {
+    fn exec(Self self) int;
 } Executor;
 ```
 
-- `Command` 类：`.exec(cmd)` 执行命令并记录退出码（`.lastCode()`）
-- `Network` 类：`.exec(url)` 执行网络命令（GET，失败抛错、成功 0）；`.get(url)` / `.post(url, body, contentType)`
+- `Command`: `Command::new(prog, args)` stores the command; `.exec()` runs it through `system::execv` (argv, no shell) and returns the exit code. There is no `.lastCode()`: the exit code is the return value of `.exec()`.
+- `Network`: `Network::new(url)` stores the URL; `.exec()` performs a GET (0 on success, raises on failure) and `.get()` returns the response body. There is no instance `.post()`; POST is `network::post(url, body, contentType)` at the first level.
 
 ## 使用方法
 
@@ -51,7 +51,7 @@ fn main(io IOStream) {
     Network::new("http://127.0.0.1:8000/").exec();   // 链式
     n Network = Network::new("http://127.0.0.1:8000/");
     n.exec();
-    io.println(n.get("http://127.0.0.1:8000/"));     // GET 响应体（实例方法）
+    io.println(n.get());                             // GET response body (instance method)
 }
 ```
 
